@@ -1,0 +1,82 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Wed May 25 13:48:17 2022
+
+@author: oi19jln
+"""
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.stats import norm
+import timeit
+N = norm.cdf
+
+def call_european(S, T, K, r, sigma):
+    d1 = (np.log(S/K) + (r + sigma**2/2)*T) / (sigma*np.sqrt(T))
+    d2 = d1 - sigma * np.sqrt(T)
+    return S * N(d1) - K * np.exp(-r*T)* N(d2), N(d1)
+
+def dynamic_delta_hedge(S,K,r,T,sigma,n,m):
+    
+    # Stock = np.zeros((N,m+1))
+    
+    
+    # Z = np.random.standard_normal()
+    # Stock[n,i+1] = Stock[n,i] * np.exp((r-sigma**2*0.5)*dt+sigma*np.sqrt(dt)*Z)
+    
+    # if Stock[n,T] > K
+    #     devia = np.exp(-r*dt)*(Stock[i,T]/S) #dt??
+    
+    # delta = mean(devia)
+    
+#************************************
+        
+    Stock = np.zeros((n,m+1))
+    Stock[:,0] = S
+    dt = T/m
+    Z = np.random.standard_normal((n, m+1))
+    
+    for n in range(n):
+        for t in range(m):
+            Stock[n,t+1] = Stock[n,t] * np.exp((r - sigma**2/2)*(dt)+sigma*np.sqrt(dt) * Z[n,t])
+
+    #hedging part
+    x = np.zeros((n,m+1))
+    y = np.zeros((n,m+1))
+    V = np.zeros((n,m+1))
+    delta = np.zeros((n,m+1))
+    Delta = np.zeros((n,m+1))
+    disc = np.zeros((1,m+1))
+    Discvec = np.zeros((n,1))
+    
+    #true values
+    for t in range(m):
+        disc[0,t+1] = np.exp(-r*(t+1))
+    
+    #time 0
+    x[:,0] = delta[0,0]
+    V[:,0] = call_european(S, T, K, r, sigma)[0]
+    y[:,0] = V[0,0] - delta[0,0] * Stock[0,0]    
+    for n in range(n):
+        for t in range(m):
+            
+            #step1
+            if t < m-1:
+                V[n,t+1],delta[n,t+1] = call_european(Stock[n,t+1], (T-dt*(t+1)), K, r, sigma)
+                #Dummy,delta[n,t+1] = call_european(Stock[n,t+1], (T-dt*(t+1)), K, r, sigma)
+            else:
+                V[n,t+1] = np.exp(-r*T)*np.maximum(Stock[n,t+1]-K,0)
+                
+            Delta[n,t+1] = (x[n,t] * Stock[n,t+1] + np.exp(r*dt) * y[n,t]) - V[n,t+1]
+            
+            #step2
+            y[n,t+1] = V[n,t+1] - delta[n,t+1] * Stock[n,t+1]
+            x[n,t+1] = delta[n,t+1]
+    
+        Discvec[n,0] = np.sum(Delta[n,:]*disc)
+    mean = np.mean(Discvec)
+    std = np.std(Discvec)
+    return mean,std
+    
+mean,std = dynamic_delta_hedge(100,100,0.03,1,0.3,1000,12)
