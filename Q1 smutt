@@ -1,5 +1,12 @@
 # -*- coding: utf-8 -*-
 """
+Created on Thu May 26 11:00:36 2022
+
+@author: oi19ham
+"""
+
+# -*- coding: utf-8 -*-
+"""
 Created on Wed May 25 13:48:17 2022
 
 @author: oi19jln
@@ -11,6 +18,9 @@ import matplotlib.pyplot as plt
 from scipy.stats import norm
 import timeit
 N = norm.cdf
+import timeit
+
+start = timeit.timeit()
 
 def call_european(S, T, K, r, sigma):
     d1 = (np.log(S/K) + (r + sigma**2/2)*T) / (sigma*np.sqrt(T))
@@ -78,5 +88,19 @@ def dynamic_delta_hedge(S,K,r,T,sigma,n,m):
     mean = np.mean(Discvec)
     std = np.std(Discvec)
     return mean,std
-    
-mean,std = dynamic_delta_hedge(100,100,0.03,1,0.3,1000,12)
+
+M = [12, 52, 252]
+output = [dynamic_delta_hedge(100,100,0.03,1,0.3,1000,m) for m in M]
+
+mean_output = [x[0] for x in output]
+std_output = [x[1] for x in output]
+              
+columns = ['Monthly', 'Weekly', 'Daily']
+index = ['Mean', 'Standard deviation']
+data = [mean_output, std_output]
+
+df_Q1 = pd.DataFrame(data = data,
+                     index = index,
+                     columns = columns)
+end = timeit.timeit()
+print(start-end)
