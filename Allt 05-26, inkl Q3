@@ -1,0 +1,211 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Thu May 26 11:00:36 2022
+
+@author: oi19ham
+"""
+
+# -*- coding: utf-8 -*-
+"""
+Created on Wed May 25 13:48:17 2022
+
+@author: oi19jln
+"""
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.stats import norm
+import timeit
+N = norm.cdf
+import timeit
+
+
+#Importen blir dålig, FIXA
+BRKB_calls_df = pd.read_csv("BRKB_calls.csv",header=None)
+BRKB_calls = BRKB_calls_df.to_numpy()
+
+BRKB_puts_df = pd.read_csv("BRKB_puts.csv",header=None)
+BRKB_puts = BRKB_puts_df.to_numpy()
+
+start = timeit.timeit()
+
+def call_european(S, T, K, r, sigma):
+    d1 = (np.log(S/K) + (r + sigma**2/2)*T) / (sigma*np.sqrt(T))
+    d2 = d1 - sigma * np.sqrt(T)
+    return S * N(d1) - K * np.exp(-r*T)* N(d2), N(d1)
+
+def dynamic_delta_hedge(S,K,r,T,sigma,n,m):
+    
+    # Stock = np.zeros((N,m+1))
+    
+    
+    # Z = np.random.standard_normal()
+    # Stock[n,i+1] = Stock[n,i] * np.exp((r-sigma**2*0.5)*dt+sigma*np.sqrt(dt)*Z)
+    
+    # if Stock[n,T] > K
+    #     devia = np.exp(-r*dt)*(Stock[i,T]/S) #dt??
+    
+    # delta = mean(devia)
+    
+#************************************
+        
+    Stock = np.zeros((n,m+1))
+    Stock[:,0] = S
+    dt = T/m
+    Z = np.random.standard_normal((n, m+1))
+    
+    for n in range(n):
+        for t in range(m):
+            Stock[n,t+1] = Stock[n,t] * np.exp((r - sigma**2/2)*(dt)+sigma*np.sqrt(dt) * Z[n,t])
+
+    #hedging part
+    x = np.zeros((n,m+1))
+    y = np.zeros((n,m+1))
+    V = np.zeros((n,m+1))
+    delta = np.zeros((n,m+1))
+    Delta = np.zeros((n,m+1))
+    disc = np.zeros((1,m+1))
+    Discvec = np.zeros((n,1))
+    
+    #true values
+    for t in range(m):
+        disc[0,t+1] = np.exp(-r*(dt*(t+1)))
+    
+    #time 0
+    V[:,0],delta[:,0] = call_european(S, T, K, r, sigma)
+    x[:,0] = delta[:,0]
+    y[:,0] = V[0,0] - delta[0,0] * Stock[0,0]    
+    for n in range(n):
+        for t in range(m):
+            
+            #step1
+            if t < m-1:
+                V[n,t+1],delta[n,t+1] = call_european(Stock[n,t+1], (T-dt*(t+1)), K, r, sigma)
+                #Dummy,delta[n,t+1] = call_european(Stock[n,t+1], (T-dt*(t+1)), K, r, sigma)
+            else:
+                V[n,t+1] = np.exp(-r*T)*np.maximum(Stock[n,t+1]-K,0)
+                
+            Delta[n,t+1] = (x[n,t] * Stock[n,t+1] + np.exp(r*dt) * y[n,t]) - V[n,t+1]
+            
+            #step2
+            y[n,t+1] = V[n,t+1] - delta[n,t+1] * Stock[n,t+1]
+            x[n,t+1] = delta[n,t+1]
+    
+        Discvec[n,0] = np.sum(Delta[n,:]*disc)
+    mean = np.mean(Discvec)
+    std = np.std(Discvec)
+    return mean,std,Discvec
+
+def pathwise_asian_delta(S,K,r,sigma,T,m,n):
+    
+    dt = T/m
+    delta = np.zeros((n,1))
+    St = np.zeros((n,m+1))
+    St[:,0] = 100
+    Z = np.random.standard_normal((n, m+1))
+    
+    for n in range(n):
+        for t in range(m):
+            St[n,t+1] = St[n,t] * np.exp((r - sigma**2/2)*(dt)+sigma*np.sqrt(dt) * Z[n,t])
+    
+    for n in range(n):
+        if np.mean(St[n, 1:]) > K:
+            delta[n,0] = np.exp(-r*T)*(np.mean(St[n, 1:])/S)
+    
+    AP = np.mean(delta)
+    return AP
+
+def pathwise_asian_vega(S,K,r,sigma,T,m,n):
+    
+    dt = T/m
+    vega = np.zeros((n,m))
+    vegaking = np.zeros((n,1))
+    St = np.zeros((n,m+1))
+    St[:,0] = 100
+    Z = np.random.standard_normal((n, m+1))
+    
+    for n in range(n):
+        for t in range(m):
+            St[n,t+1] = St[n,t] * np.exp((r - sigma**2/2)*(dt)+sigma*np.sqrt(dt) * Z[n,t])
+            
+    for n in range(n):
+        for t in range(m):            
+            if np.mean(St[n, 1:]) > K:
+                vega[n,t] = np.exp(-r*T)*(St[n,t+1]*((np.log(St[n,t+1]/S)-(r + 0.5*sigma**2)*(dt*(t+1)))/sigma))
+        vegaking[n,0] = np.exp(-r*T)*np.mean(vega[n,:])
+    
+    AP = np.mean(vegaking)
+    return AP
+
+def Berkshire_Hathaway_strangle(S,K1,K2,r,T,sigma, m):
+    #American option based on binomial tree
+    #m is the amount of weeks to expiary, T is how big part of the year that is covered?
+    #sigma from given table values?
+    dt = T/m
+    bintree = np.zeros((m+1,m+1))
+    bintree[0,0] = S
+    Valuemat = np.zeros((m+1,m+1))
+    
+    u = np.exp(sigma*np.sqrt(dt))
+    d = np.exp(-sigma*np.sqrt(dt))
+    
+    p = ((np.exp(r*dt)-d)/(u-d))
+    q = (1-p)
+    
+    for t in range(m):
+        for nod in range(t+1):
+            if nod%2 == 0:
+                bintree[nod,t+1]= bintree[nod,t] * u
+                bintree[nod+1,t+1]= bintree[nod,t] * d
+            else:
+                bintree[nod+1,t+1]= bintree[nod,t] * d
+    
+    for t in range(m+1):
+        for nod in range((m-t)+1):
+            if t == 0:
+                strangle = np.maximum(K1-bintree[nod,m-t],bintree[nod,m-t]-K2)
+                
+                Valuemat[nod,m-t] = np.exp(-r*T)*np.maximum(strangle,0)
+            else:
+                strangle = np.maximum(K1-bintree[nod,m-t],bintree[nod,m-t]-K2)
+                
+                stranglemax = np.exp(-r*T)*np.maximum(strangle,0)
+
+                conval = p * np.exp(-r*dt) * Valuemat[nod,m-(t-1)] + q * np.exp(-r*dt) * Valuemat[nod+1,m-(t-1)]
+               
+                Valuemat[nod,m-t] = np.exp(-r*T)*np.maximum(stranglemax,conval)
+    
+    return Valuemat[0,0]
+    
+    
+
+
+
+# M = [12, 52, 252]
+# output = [dynamic_delta_hedge(100,100,0.03,1,0.3,10000,m) for m in M]
+
+# mean_output = [x[0] for x in output]
+# std_output = [x[1] for x in output]
+              
+# columns = ['Monthly', 'Weekly', 'Daily']
+# index = ['Mean', 'Standard deviation']
+# data = [mean_output, std_output]
+
+# df_Q1 = pd.DataFrame(data = data,
+#                       index = index,
+#                       columns = columns)
+
+# arr_output = [x[2] for x in output]
+
+# plt.hist(arr_output[0],500,alpha=0.7)
+# plt.hist(arr_output[1],500,alpha=0.6)
+# plt.hist(arr_output[2],500,alpha=0.6)
+
+# print(pathwise_asian_delta(100,100,0.03,0.2,1,12,20000))
+# print(pathwise_asian_vega(100,100,0.03,0.2,1,12,20000))
+
+print(Berkshire_Hathaway_strangle(350,320,380,0.01,1,0.2, 12))
+
+end = timeit.timeit()
+print(start-end)
