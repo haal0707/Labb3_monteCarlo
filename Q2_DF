@@ -17,7 +17,7 @@ K = [80, 100, 120]
 r = 0.03
 sigma = 0.2
 m = [12, 52]
-n = 100
+n = 10000
 T = 1
 
 def random_mat(n, m):
@@ -113,10 +113,10 @@ index = ['Strike price','Delta f.d', 'Delta c.d', 'Vega f.d', 'Vega c.d']
 columns = ['m = 12', 'm = 52', 'm = 12', 'm = 52', 'm = 12', 'm = 52']
 
 row_0 = ['K = 80', 'K = 80', 'K = 100', 'K = 100', 'K = 120', 'K = 120']
-row_1 = [delta_12_fd[0], delta_52_fd[0], delta_12_fd[1], delta_52_fd[1], delta_12_fd[1], delta_52_fd[1]]
-row_2 = [delta_12_cd[0], delta_52_cd[0], delta_12_cd[1], delta_52_cd[1], delta_12_cd[1], delta_52_cd[1]]
-row_3 = [vega_12_fd[0], vega_52_fd[0], vega_12_fd[1], vega_52_fd[1], vega_12_fd[1], vega_52_fd[1]]
-row_4 = [vega_12_cd[0], vega_52_cd[0], vega_12_cd[1], vega_52_cd[1], vega_12_cd[1], vega_52_cd[1]]
+row_1 = [delta_12_fd[0], delta_52_fd[0], delta_12_fd[1], delta_52_fd[1], delta_12_fd[2], delta_52_fd[2]]
+row_2 = [delta_12_cd[0], delta_52_cd[0], delta_12_cd[1], delta_52_cd[1], delta_12_cd[2], delta_52_cd[2]]
+row_3 = [vega_12_fd[0], vega_52_fd[0], vega_12_fd[1], vega_52_fd[1], vega_12_fd[2], vega_52_fd[2]]
+row_4 = [vega_12_cd[0], vega_52_cd[0], vega_12_cd[1], vega_52_cd[1], vega_12_cd[2], vega_52_cd[2]]
 
 data = [row_0, row_1, row_2, row_3, row_4]
 
